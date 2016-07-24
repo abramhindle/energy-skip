@@ -135,82 +135,84 @@ s.boot;
 	OSCFunc.newMatching(~mkgranwrap.(u),'/multi/4');
 }.fork;
 
-{
-	//s.sync;
-	//GUI
-	~mkgui = {
-		var offset = 0.01, setter, w, c, a, b, offslider, scratch, energy, erot,
-		    width=1000,height=700, minslider;
-		w = Window.new(name:"Energy-Skip",bounds:Rect(0,0,width, height)).front;
-		c = NumberBox(w, Rect(20, 20, width/3, 40));
-		c.scroll_step_(offset);
-		c.step_(offset);
-		c.align_(\right);
-		energy = NumberBox(w, Rect(width/2, 20, width/3, 40));
-		energy.align_(\right);
-		erot = Routine({
-			loop {
-				~energy.get({|x|
-					AppClock.sched(0.0, { arg time; 
-						energy.value_(x);
-						nil
-					});
-				});
-				0.5.wait;
-			}
-		}).play;
-		// this sets the time
-		a = Slider(w, Rect(20, 60, 4*width/9, 60))
-		.action_({
-			setter.(a.value);
-		});
-		c.action({|x|
-			setter.(x);
-		});
-		offslider = Slider(w, Rect(width/2, 60, 4*width/9, 60));
-		offslider.action_({
-			offset = offslider.value * 0.01;
-			c.step_(offset);
-			c.scroll_step_(offset);
-		});
-		minslider = Slider(w, Rect(width-40,0,40,120));
-		minslider.value_(0.1);
-		minslider.orientation_(\vertical);
-		minslider.action_({~minamp.set(minslider.value)});
-		// sets the values
-		setter = {|val|
-			~energytick.();
-			~b1d.get({|x|
-				var r,out;
-				["x",x].postln;
-				if (val >= 0.0, { out = val; }, {out = x + offset});
-				["out",out].postln;
+~mkgui = {
+	var offset = 0.01, setter, w, c, a, b, offslider, scratch, energy, erot,
+	width=1000,height=700, minslider;
+	w = Window.new(name:"Energy-Skip",bounds:Rect(0,0,width, height)).front;
+	c = NumberBox(w, Rect(20, 20, width/3, 40));
+	c.scroll_step_(offset);
+	c.step_(offset);
+	c.align_(\right);
+	energy = NumberBox(w, Rect(width/2, 20, width/3, 40));
+	energy.align_(\right);
+	erot = Routine({
+		loop {
+			~energy.get({|x|
 				AppClock.sched(0.0, { arg time; 
-					c.value_(out);
-					a.value_(out);
+					energy.value_(x);
 					nil
 				});
+			});
+			0.5.wait;
+		}
+	}).play;
+	// this sets the time
+	a = Slider(w, Rect(20, 60, 4*width/9, 60))
+	.action_({
+		setter.(a.value);
+	});
+	c.action({
+		setter.(c.value);
+	});
+	offslider = Slider(w, Rect(width/2, 60, 4*width/9, 60));
+	offslider.action_({
+		offset = offslider.value * 0.01;
+		c.step_(offset);
+		c.scroll_step_(offset);
+	});
+	minslider = Slider(w, Rect(width-40,0,40,120));
+	minslider.value_(0.1);
+	minslider.orientation_(\vertical);
+	minslider.action_({~minamp.set(minslider.value)});
+	// sets the values
+	setter = {|val|
+		~energytick.();
+		~b1d.get({|x|
+			var r,out;
+			["x",x].postln;
+			if (val >= 0.0, { out = val; }, {out = x + offset});
+			["out",out].postln;
+			AppClock.sched(0.0, { arg time; 
+				c.value_(out);
+				a.value_(out);
+				nil
+			});
 				~b1d.set(out);
-				~b1s.set(\gate,1.0.rand);
-				~b2s.set(\gate,1.0.rand);
-			});	
-		};
-		scratch = Slider(w, Rect(20, 180, width-40, height-180-20));
-		scratch.action_({
-			setter.(-1.0);
-			//~b1s.set(\gate,1.0.rand);
-			//	~b2s.set(\gate,1.0.rand);		
-		});
-		b = Button(w, Rect(20, 120, width-40, 60))
-		.states_([
-			["there is suffering", Color.black, Color.red],
-			["the origin of suffering", Color.white, Color.black],
-			["the cessation of suffering", Color.red, Color.white],
-			["there is a path to cessation of suffering", Color.blue, Color.clear]
-		])
-		.action_({ arg butt;
-			setter.(-1.0);
-		});
+			~b1s.set(\gate,1.0.rand);
+			~b2s.set(\gate,1.0.rand);
+		});	
 	};
-	~mkgui.();
-}.();
+	scratch = Slider(w, Rect(20, 180, width-40, height-180-20));
+	scratch.action_({
+		setter.(-1.0);
+		//~b1s.set(\gate,1.0.rand);
+		//	~b2s.set(\gate,1.0.rand);		
+	});
+	b = Button(w, Rect(20, 120, width-40, 60))
+	.states_([
+		["there is suffering", Color.black, Color.red],
+		["the origin of suffering", Color.white, Color.black],
+		["the cessation of suffering", Color.red, Color.white],
+		["there is a path to cessation of suffering", Color.blue, Color.clear]
+	])
+	.action_({ arg butt;
+			setter.(-1.0);
+	});
+};
+{
+	s.sync;
+	AppClock.sched(0.0, { arg time;
+		~mkgui.();
+		nil
+	});
+}.fork;
