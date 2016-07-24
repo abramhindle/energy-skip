@@ -1,3 +1,4 @@
+s.stop;
 s.boot;
 
 // run something in the app thread
@@ -12,22 +13,22 @@ s.boot;
 {
 	SynthDef(\g1rainer,
 		{
-			arg trate=1.0,d=0.0,b,dur=0,rate=1.2,amp=1.0,gate=0.0,out=0,attack=0.01,sustain=1.0,release=1.0,minamp=0.0;
+			arg trate=1.0,d=0.0,b,dur=0,rate=1.2,amp=1.0,gate=0.0,out=0,attack=0.01,sustain=1.0,release=1.0,minamp=0.0,baseamp=1.0;
 			var env = Env.asr(attack,sustain,release);
 			var gen = EnvGen.kr(env, Changed.kr(gate));
 			if(dur == 0,{dur=1.0/(2*trate)});		
 			//dur = (10.rand + 1.0) / (2*trate);
 			Out.ar(out,
 				TGrains.ar(2,
-					Impulse.ar(trate), // trigger
+					Impulse.ar(trate*WhiteNoise.kr(0.1,1.0)), // trigger
 					b, // buffer
-					rate,//
-					//(rate ** WhiteNoise.kr(3).round(1)), // rate
+					//rate,//
+					(rate ** WhiteNoise.kr(3).round(1)), // rate
 					(d*(WhiteNoise.kr(0.1*(trate/30.0),1.0)))*BufDur.kr(b), //center
 					//d*BufDur.kr(b),
 					dur, //duration
 					0,//WhiteNoise.kr(0.6),//pan
-					0.1*amp, //amp
+					0.1*amp*(4.0*baseamp), //amp
 					2
 				)*(gen+minamp);
 			);
@@ -38,7 +39,7 @@ s.boot;
 			LPF.ar(
 				HPF.ar(
 					PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum), rate: 1.0 * (1.0 + rate - 0.5), loop: 1.0),
-					freq: 20 + 4980*hp
+					freq: 4980.0*hp + 40.0
 				),				
 				freq: 5000*lp,
 				mul: amp
@@ -56,7 +57,7 @@ s.boot;
 		"track1.wav",
 		"track2.wav",
 		"track3.wav",
-		"don-747.wav"
+		"track4.wav"
 	].collect({|x| Buffer.read(s,x) });
 	~don = Buffer.read(s,"don-747.wav");
 	~dons =	Synth.newPaused(\PlayBuf, [\out, 0, \bufnum, ~don.bufnum]);
@@ -84,9 +85,13 @@ s.boot;
 	~energy.set(0.0);
 	~ienergy  = Bus.control(s);
 	~ienergyi = ~ienergy.index;
-	~ienergys = { Out.kr(~ienergyi,In.kr(~energy).linlin(0.0,30.0,30.0,0.01)); }.play;
-	~energyinc = 0.05;
-	~energydec = 0.03;
+	~ienergys = { Out.kr(~ienergyi,In.kr(~energy).linexp(0.0,30.0,10.0,0.1)); }.play;
+	~energy10  = Bus.control(s);
+	~energy10i = ~energy10.index;
+	~energy10s = { Out.kr(~energy10i,In.kr(~energy).linexp(0.0,30.0,0.1,10.0)); }.play;
+
+	~energyinc = 0.1;
+	~energydec = 0.01;
 	~energywait = 0.1;
 	~energytick = {
 		//~energy.get({|x| ~energy.set(x * (1.0+ ~energyinc)); (x+~energyinc).postln;});
@@ -139,9 +144,8 @@ s.boot;
 	// now map the busses
 	~bs = [ ~b1s, ~b2s, ~b3s, ~b4s ];
 	~bs.do {|bs|
-		//bs.map(\dur,~energy);
-		bs.set(\dur,3.0);
-		bs.map(\amp,~energy);
+		bs.map(\dur,~energy);
+		bs.map(\amp,~energy10);
 		bs.map(\release,~energy);
 		bs.set(\trate,~ienergy);
 	};
@@ -153,20 +157,39 @@ s.boot;
 
 ~mkgui = {
 	var offset = 0.01, setter, w, c, a, b, offslider, scratch, energy, erot,
-	width=1000,height=700, minslider, startbutton;
+	width=1000,height=700, minslider, startbutton, donslider,
+	donlpslider, donhpslider, startheight=40, sliders;
 	w = Window.new(name:"Energy-Skip",bounds:Rect(0,0,width, height)).front;
-	startbutton = Button(w, Rect(20,0,width/10,20));
+	startbutton = Button(w, Rect(20,0,width/10,startheight));
 	startbutton.action_({~dons.run;});
 	startbutton.states_([
 		["Start", Color.black, Color.red],
 		["Playing", Color.white, Color.black]]);
-	c = NumberBox(w, Rect(20, 20, width/3, 40));
+	donslider = Slider(w, Rect(20+(1*width/10),0,width/5,startheight));
+	donslider.value_(0.1);
+	donslider.action_({~dons.set(\amp,10*donslider.value)});
+	donlpslider = Slider(w, Rect(20+(3*width/10),0,width/5,startheight));
+	donlpslider.value_(1.0);
+	donlpslider.action_({~dons.set(\lp,donlpslider.value)});
+	donhpslider = Slider(w, Rect(20+(5*width/10),0,width/5,startheight));
+	donhpslider.value_(0.0);
+	donhpslider.action_({~dons.set(\hp,donhpslider.value)});
+	// Display the time
+	c = NumberBox(w, Rect(20, startheight, width/3, 40));
 	c.scroll_step_(offset);
 	c.step_(offset);
 	c.align_(\right);
 	c.minDecimals_(5);
-	energy = NumberBox(w, Rect(width/2, 20, width/3, 40));
+	energy = NumberBox(w, Rect(width/2, startheight, width/5, 40));
 	energy.align_(\right);
+	startheight = startheight + 40;
+	sliders = ~bs.collect { |bs,i|
+		var basew = (width/2) + (width/5),
+		    mywidth = (width - basew - 40)/4,
+	     	nslider = Slider(w, Rect(basew+(mywidth*i),0,mywidth,startheight));
+		nslider.value_(0.25);
+		nslider.action_({bs.set(\baseamp,nslider.value)});
+	};
 	erot = Routine({
 		loop {
 			~energy.get({|x|
@@ -174,24 +197,25 @@ s.boot;
 					energy.value_(x);						
 				});
 			});
-			0.5.wait;
+			0.12.wait;
 		}
 	}).play;
 	// this sets the time
-	a = Slider(w, Rect(20, 60, 4*width/9, 60))
+	a = Slider(w, Rect(20, startheight, 4*width/9, 60))
 	.action_({
 		setter.(a.value);
 	});
 	c.action({
 		setter.(c.value);
 	});
-	offslider = Slider(w, Rect(width/2, 60, 4*width/9, 60));
+	offslider = Slider(w, Rect(width/2, startheight, 4*width/9, 60));
 	offslider.action_({
 		offset = offslider.value * 0.01;
 		c.step_(offset);
 		c.scroll_step_(offset);
 	});
-	minslider = Slider(w, Rect(width-40,0,40,120));
+	startheight = startheight + 60;
+	minslider = Slider(w, Rect(width-40,0,40,startheight));
 	minslider.value_(0.1);
 	minslider.orientation_(\vertical);
 	minslider.action_({~minamp.set(minslider.value)});
@@ -213,14 +237,7 @@ s.boot;
 			~b1d.set(out);
 		});	
 	};
-	scratch = Slider(w, Rect(20, 180, width-40, height-180-20));
-	scratch.action_({
-		setter.(-1.0);
-	});
-	scratch.keyDownAction_({
-		setter.(-1.0);
-	});
-	b = Button(w, Rect(20, 120, width-40, 60))
+	b = Button(w, Rect(20, startheight, width-40, 60))
 	.states_([
 		["there is suffering", Color.black, Color.red],
 		["the origin of suffering", Color.white, Color.black],
@@ -230,9 +247,20 @@ s.boot;
 	.action_({ arg butt;
 			setter.(-1.0);
 	});
+	startheight = startheight + 60;
+	scratch = Slider(w, Rect(20, startheight, width-40, height-startheight-20));
+	scratch.action_({
+		setter.(-1.0);
+	});
+	scratch.keyDownAction_({
+		setter.(-1.0);
+	});
+
 };
 	"Making GUI".postln;
 	s.sync;
 	~guigo.(~mkgui);
 	"GUI Made".postln;
 }.fork;
+//~dons.autogui;
+//~energy.set(30.0)
