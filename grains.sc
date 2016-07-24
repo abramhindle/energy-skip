@@ -1,6 +1,6 @@
-7s.boot;
+s.boot;
 
-//
+// run something in the app thread
 ~guigo = {|f|
 	AppClock.sched(0.0, { arg time;
 		f.();
@@ -23,7 +23,7 @@
 					b, // buffer
 					rate,//
 					//(rate ** WhiteNoise.kr(3).round(1)), // rate
-					d*BufDur.kr(b), //center
+					(d*(WhiteNoise.kr(0.1*(trate/30.0),1.0)))*BufDur.kr(b), //center
 					//d*BufDur.kr(b),
 					dur, //duration
 					0,//WhiteNoise.kr(0.6),//pan
@@ -62,7 +62,7 @@
 	~dons =	Synth.newPaused(\PlayBuf, [\out, 0, \bufnum, ~don.bufnum]);
 	//~dons.run;
 	//Synth(\g1rainer,[\trate,1/(60*16),\dur,60.0*16,\rate,1,\d,0.0,\b,~don.bufnum,\minamp,0.5,\amp,10.0]);
-
+	"Buffers load".postln;
 	// sync
 	s.sync;
 	// buffers
@@ -82,6 +82,9 @@
 	// Energy stuff
 	~energy  = Bus.control(s);
 	~energy.set(0.0);
+	~ienergy  = Bus.control(s);
+	~ienergyi = ~ienergy.index;
+	~ienergys = { Out.kr(~ienergyi,In.kr(~energy).linlin(0.0,30.0,30.0,0.01)); }.play;
 	~energyinc = 0.05;
 	~energydec = 0.03;
 	~energywait = 0.1;
@@ -98,6 +101,7 @@
 			~energywait.wait;
 		};
 	}).play;
+	"Energy ready".postln;
 	// play b1
 	// play the synth
 	~b1s = Synth(\g1rainer,[\trate,1.0,\dur,2.0,\rate,1,\d,0.0,\b,~b1,\minamp,0.1]);
@@ -135,11 +139,13 @@
 	// now map the busses
 	~bs = [ ~b1s, ~b2s, ~b3s, ~b4s ];
 	~bs.do {|bs|
-		bs.map(\dur,~energy);
+		//bs.map(\dur,~energy);
+		bs.set(\dur,3.0);
 		bs.map(\amp,~energy);
 		bs.map(\release,~energy);
-		bs.map(\release,~trate);
+		bs.set(\trate,~ienergy);
 	};
+	"busses mapped".postln;
 	//~xsynth2 = { Out.kr(~b2d,MouseX.kr()) }.play;
 	//~xsynth1 = { Out.kr(~b1d,MouseX.kr()) }.play;
 	//~xsynth1.stop;
@@ -203,7 +209,7 @@
 					a.value_(out);
 				}
 			);
-			~bs.do{|bs| bs.set(\date,1.0.rand); };
+			~bs.do{|bs| bs.set(\gate,1.0.rand); };
 			~b1d.set(out);
 		});	
 	};
@@ -225,6 +231,8 @@
 			setter.(-1.0);
 	});
 };
+	"Making GUI".postln;
 	s.sync;
 	~guigo.(~mkgui);
+	"GUI Made".postln;
 }.fork;
