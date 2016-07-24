@@ -1,4 +1,4 @@
-s.stop;
+//s.stop;
 s.boot;
 
 // run something in the app thread
