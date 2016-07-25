@@ -264,3 +264,6 @@ s.boot;
 }.fork;
 //~dons.autogui;
 //~energy.set(30.0)
+~se = Buffer.read(s,"track4.wav");
+~ses =	Synth.newPaused(\PlayBuf, [\out, 0, \bufnum, ~se.bufnum]);
+~ses.run();
